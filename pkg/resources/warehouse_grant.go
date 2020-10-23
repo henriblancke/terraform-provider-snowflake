@@ -15,13 +15,13 @@ var validWarehousePrivileges = newPrivilegeSet(
 	privilegeUsage,
 )
 var warehouseGrantSchema = map[string]*schema.Schema{
-	"warehouse_name": &schema.Schema{
+	"warehouse_name": {
 		Type:        schema.TypeString,
 		Required:    true,
 		Description: "The name of the warehouse on which to grant privileges.",
 		ForceNew:    true,
 	},
-	"privilege": &schema.Schema{
+	"privilege": {
 		Type:         schema.TypeString,
 		Optional:     true,
 		Description:  "The privilege to grant on the warehouse.",
@@ -29,11 +29,18 @@ var warehouseGrantSchema = map[string]*schema.Schema{
 		ValidateFunc: validation.StringInSlice(validWarehousePrivileges.toList(), true),
 		ForceNew:     true,
 	},
-	"roles": &schema.Schema{
+	"roles": {
 		Type:        schema.TypeSet,
 		Elem:        &schema.Schema{Type: schema.TypeString},
 		Optional:    true,
 		Description: "Grants privilege to these roles.",
+		ForceNew:    true,
+	},
+	"with_grant_option": {
+		Type:        schema.TypeBool,
+		Optional:    true,
+		Description: "When this is set to true, allows the recipient role to grant the privileges to other roles.",
+		Default:     false,
 		ForceNew:    true,
 	},
 }
@@ -57,6 +64,7 @@ func WarehouseGrant() *schema.Resource {
 func CreateWarehouseGrant(data *schema.ResourceData, meta interface{}) error {
 	w := data.Get("warehouse_name").(string)
 	priv := data.Get("privilege").(string)
+	grantOption := data.Get("with_grant_option").(bool)
 	builder := snowflake.WarehouseGrant(w)
 
 	err := createGenericGrant(data, meta, builder)
@@ -67,6 +75,7 @@ func CreateWarehouseGrant(data *schema.ResourceData, meta interface{}) error {
 	grant := &grantID{
 		ResourceName: w,
 		Privilege:    priv,
+		GrantOption:  grantOption,
 	}
 	dataIDInput, err := grant.String()
 	if err != nil {
@@ -91,6 +100,10 @@ func ReadWarehouseGrant(data *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 	err = data.Set("privilege", priv)
+	if err != nil {
+		return err
+	}
+	err = data.Set("with_grant_option", grantID.GrantOption)
 	if err != nil {
 		return err
 	}

@@ -13,25 +13,25 @@ var ValidViewPrivileges = newPrivilegeSet(
 )
 
 var viewGrantSchema = map[string]*schema.Schema{
-	"view_name": &schema.Schema{
+	"view_name": {
 		Type:        schema.TypeString,
 		Optional:    true,
 		Description: "The name of the view on which to grant privileges immediately (only valid if on_future is unset).",
 		ForceNew:    true,
 	},
-	"schema_name": &schema.Schema{
+	"schema_name": {
 		Type:        schema.TypeString,
 		Optional:    true,
 		Description: "The name of the schema containing the current or future views on which to grant privileges.",
 		ForceNew:    true,
 	},
-	"database_name": &schema.Schema{
+	"database_name": {
 		Type:        schema.TypeString,
 		Required:    true,
 		Description: "The name of the database containing the current or future views on which to grant privileges.",
 		ForceNew:    true,
 	},
-	"privilege": &schema.Schema{
+	"privilege": {
 		Type:         schema.TypeString,
 		Optional:     true,
 		Description:  "The privilege to grant on the current or future view.",
@@ -39,27 +39,34 @@ var viewGrantSchema = map[string]*schema.Schema{
 		ValidateFunc: validation.StringInSlice(ValidViewPrivileges.toList(), true),
 		ForceNew:     true,
 	},
-	"roles": &schema.Schema{
+	"roles": {
 		Type:        schema.TypeSet,
 		Elem:        &schema.Schema{Type: schema.TypeString},
 		Optional:    true,
 		Description: "Grants privilege to these roles.",
 		ForceNew:    true,
 	},
-	"shares": &schema.Schema{
+	"shares": {
 		Type:        schema.TypeSet,
 		Elem:        &schema.Schema{Type: schema.TypeString},
 		Optional:    true,
 		Description: "Grants privilege to these shares (only valid if on_future is unset).",
 		ForceNew:    true,
 	},
-	"on_future": &schema.Schema{
+	"on_future": {
 		Type:          schema.TypeBool,
 		Optional:      true,
 		Description:   "When this is set to true and a schema_name is provided, apply this grant on all future views in the given schema. When this is true and no schema_name is provided apply this grant on all future views in the given database. The view_name and shares fields must be unset in order to use on_future.",
 		Default:       false,
 		ForceNew:      true,
 		ConflictsWith: []string{"view_name", "shares"},
+	},
+	"with_grant_option": {
+		Type:        schema.TypeBool,
+		Optional:    true,
+		Description: "When this is set to true, allows the recipient role to grant the privileges to other roles.",
+		Default:     false,
+		ForceNew:    true,
 	},
 }
 
@@ -96,6 +103,7 @@ func CreateViewGrant(data *schema.ResourceData, meta interface{}) error {
 	dbName := data.Get("database_name").(string)
 	priv := data.Get("privilege").(string)
 	futureViews := data.Get("on_future").(bool)
+	grantOption := data.Get("with_grant_option").(bool)
 
 	if (schemaName == "") && !futureViews {
 		return errors.New("schema_name must be set unless on_future is true.")
@@ -125,6 +133,7 @@ func CreateViewGrant(data *schema.ResourceData, meta interface{}) error {
 		SchemaName:   schemaName,
 		ObjectName:   viewName,
 		Privilege:    priv,
+		GrantOption:  grantOption,
 	}
 	dataIDInput, err := grant.String()
 	if err != nil {
@@ -167,6 +176,10 @@ func ReadViewGrant(data *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 	err = data.Set("privilege", priv)
+	if err != nil {
+		return err
+	}
+	err = data.Set("with_grant_option", grantID.GrantOption)
 	if err != nil {
 		return err
 	}

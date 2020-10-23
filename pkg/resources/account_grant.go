@@ -15,10 +15,12 @@ var validAccountPrivileges = newPrivilegeSet(
 	privilegeCreateIntegration,
 	privilegeManageGrants,
 	privilegeMonitorUsage,
+	privilegeMonitorExecution,
+	privilegeExecuteTask,
 )
 
 var accountGrantSchema = map[string]*schema.Schema{
-	"privilege": &schema.Schema{
+	"privilege": {
 		Type:         schema.TypeString,
 		Optional:     true,
 		Description:  "The privilege to grant on the schema.",
@@ -26,11 +28,18 @@ var accountGrantSchema = map[string]*schema.Schema{
 		ValidateFunc: validation.StringInSlice(validAccountPrivileges.toList(), true),
 		ForceNew:     true,
 	},
-	"roles": &schema.Schema{
+	"roles": {
 		Type:        schema.TypeSet,
 		Elem:        &schema.Schema{Type: schema.TypeString},
 		Optional:    true,
 		Description: "Grants privilege to these roles.",
+		ForceNew:    true,
+	},
+	"with_grant_option": {
+		Type:        schema.TypeBool,
+		Optional:    true,
+		Description: "When this is set to true, allows the recipient role to grant the privileges to other roles.",
+		Default:     false,
 		ForceNew:    true,
 	},
 }
@@ -49,6 +58,7 @@ func AccountGrant() *schema.Resource {
 // CreateAccountGrant implements schema.CreateFunc
 func CreateAccountGrant(data *schema.ResourceData, meta interface{}) error {
 	priv := data.Get("privilege").(string)
+	grantOption := data.Get("with_grant_option").(bool)
 
 	builder := snowflake.AccountGrant()
 
@@ -60,6 +70,7 @@ func CreateAccountGrant(data *schema.ResourceData, meta interface{}) error {
 	grantID := &grantID{
 		ResourceName: "ACCOUNT",
 		Privilege:    priv,
+		GrantOption:  grantOption,
 	}
 	dataIDInput, err := grantID.String()
 	if err != nil {
@@ -77,6 +88,10 @@ func ReadAccountGrant(data *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 	err = data.Set("privilege", grantID.Privilege)
+	if err != nil {
+		return err
+	}
+	err = data.Set("with_grant_option", grantID.GrantOption)
 	if err != nil {
 		return err
 	}

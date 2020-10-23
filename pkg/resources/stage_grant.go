@@ -17,25 +17,25 @@ var ValidStagePrivileges = newPrivilegeSet(
 )
 
 var stageGrantSchema = map[string]*schema.Schema{
-	"stage_name": &schema.Schema{
+	"stage_name": {
 		Type:        schema.TypeString,
 		Required:    true,
 		Description: "The name of the stage on which to grant privileges.",
 		ForceNew:    true,
 	},
-	"schema_name": &schema.Schema{
+	"schema_name": {
 		Type:        schema.TypeString,
 		Required:    true,
 		Description: "The name of the schema containing the current stage on which to grant privileges.",
 		ForceNew:    true,
 	},
-	"database_name": &schema.Schema{
+	"database_name": {
 		Type:        schema.TypeString,
 		Required:    true,
 		Description: "The name of the database containing the current stage on which to grant privileges.",
 		ForceNew:    true,
 	},
-	"privilege": &schema.Schema{
+	"privilege": {
 		Type:         schema.TypeString,
 		Optional:     true,
 		Description:  "The privilege to grant on the stage.",
@@ -43,18 +43,25 @@ var stageGrantSchema = map[string]*schema.Schema{
 		ValidateFunc: validation.StringInSlice(ValidStagePrivileges.toList(), true),
 		ForceNew:     true,
 	},
-	"roles": &schema.Schema{
+	"roles": {
 		Type:        schema.TypeSet,
 		Elem:        &schema.Schema{Type: schema.TypeString},
 		Optional:    true,
 		Description: "Grants privilege to these roles.",
 		ForceNew:    true,
 	},
-	"shares": &schema.Schema{
+	"shares": {
 		Type:        schema.TypeSet,
 		Elem:        &schema.Schema{Type: schema.TypeString},
 		Optional:    true,
 		Description: "Grants privilege to these shares.",
+		ForceNew:    true,
+	},
+	"with_grant_option": {
+		Type:        schema.TypeBool,
+		Optional:    true,
+		Description: "When this is set to true, allows the recipient role to grant the privileges to other roles.",
+		Default:     false,
 		ForceNew:    true,
 	},
 }
@@ -84,6 +91,7 @@ func CreateStageGrant(data *schema.ResourceData, meta interface{}) error {
 	schemaName := data.Get("schema_name").(string)
 	dbName := data.Get("database_name").(string)
 	priv := data.Get("privilege").(string)
+	grantOption := data.Get("with_grant_option").(bool)
 
 	var builder snowflake.GrantBuilder
 	builder = snowflake.StageGrant(dbName, schemaName, stageName)
@@ -98,6 +106,7 @@ func CreateStageGrant(data *schema.ResourceData, meta interface{}) error {
 		SchemaName:   schemaName,
 		ObjectName:   stageName,
 		Privilege:    priv,
+		GrantOption:  grantOption,
 	}
 	dataIDInput, err := grant.String()
 	if err != nil {
@@ -132,6 +141,10 @@ func ReadStageGrant(data *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 	err = data.Set("privilege", priv)
+	if err != nil {
+		return err
+	}
+	err = data.Set("with_grant_option", grantID.GrantOption)
 	if err != nil {
 		return err
 	}

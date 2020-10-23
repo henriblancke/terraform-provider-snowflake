@@ -29,22 +29,23 @@ var validSchemaPrivileges = newPrivilegeSet(
 	privilegeCreateExternalTable,
 	privilegeCreateMaterializedView,
 	privilegeCreateTemporaryTable,
+	privilegeCreateMaskingPolicy,
 )
 
 var schemaGrantSchema = map[string]*schema.Schema{
-	"schema_name": &schema.Schema{
+	"schema_name": {
 		Type:        schema.TypeString,
 		Optional:    true,
 		Description: "The name of the schema on which to grant privileges.",
 		ForceNew:    true,
 	},
-	"database_name": &schema.Schema{
+	"database_name": {
 		Type:        schema.TypeString,
 		Required:    true,
 		Description: "The name of the database containing the schema on which to grant privileges.",
 		ForceNew:    true,
 	},
-	"privilege": &schema.Schema{
+	"privilege": {
 		Type:         schema.TypeString,
 		Optional:     true,
 		Description:  "The privilege to grant on the current or future schema. Note that if \"OWNERSHIP\" is specified, ensure that the role that terraform is using is granted access.",
@@ -52,27 +53,34 @@ var schemaGrantSchema = map[string]*schema.Schema{
 		ValidateFunc: validation.StringInSlice(validSchemaPrivileges.toList(), true),
 		ForceNew:     true,
 	},
-	"roles": &schema.Schema{
+	"roles": {
 		Type:        schema.TypeSet,
 		Elem:        &schema.Schema{Type: schema.TypeString},
 		Optional:    true,
 		Description: "Grants privilege to these roles.",
 		ForceNew:    true,
 	},
-	"shares": &schema.Schema{
+	"shares": {
 		Type:        schema.TypeSet,
 		Elem:        &schema.Schema{Type: schema.TypeString},
 		Optional:    true,
 		Description: "Grants privilege to these shares (only valid if on_future is unset).",
 		ForceNew:    true,
 	},
-	"on_future": &schema.Schema{
+	"on_future": {
 		Type:          schema.TypeBool,
 		Optional:      true,
 		Description:   "When this is set to true, apply this grant on all future schemas in the given database. The schema_name and shares fields must be unset in order to use on_future.",
 		Default:       false,
 		ForceNew:      true,
 		ConflictsWith: []string{"schema_name", "shares"},
+	},
+	"with_grant_option": {
+		Type:        schema.TypeBool,
+		Optional:    true,
+		Description: "When this is set to true, allows the recipient role to grant the privileges to other roles.",
+		Default:     false,
+		ForceNew:    true,
 	},
 }
 
@@ -101,6 +109,7 @@ func CreateSchemaGrant(data *schema.ResourceData, meta interface{}) error {
 	db := data.Get("database_name").(string)
 	priv := data.Get("privilege").(string)
 	onFuture := data.Get("on_future").(bool)
+	grantOption := data.Get("with_grant_option").(bool)
 
 	if (schema == "") && !onFuture {
 		return errors.New("schema_name must be set unless on_future is true.")
@@ -122,6 +131,7 @@ func CreateSchemaGrant(data *schema.ResourceData, meta interface{}) error {
 		ResourceName: db,
 		SchemaName:   schema,
 		Privilege:    priv,
+		GrantOption:  grantOption,
 	}
 	dataIDInput, err := grantID.String()
 	if err != nil {
@@ -158,6 +168,10 @@ func ReadSchemaGrant(data *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 	err = data.Set("privilege", grantID.Privilege)
+	if err != nil {
+		return err
+	}
+	err = data.Set("with_grant_option", grantID.GrantOption)
 	if err != nil {
 		return err
 	}

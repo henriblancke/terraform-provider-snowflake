@@ -37,6 +37,7 @@ const (
 	privilegeCreateExternalTable    privilege = "CREATE EXTERNAL TABLE"
 	privilegeCreateMaterializedView privilege = "CREATE MATERIALIZED VIEW"
 	privilegeCreateTemporaryTable   privilege = "CREATE TEMPORARY TABLE"
+	privilegeCreateMaskingPolicy    privilege = "CREATE MASKING POLICY"
 
 	privilegeCreateRole        privilege = "CREATE ROLE"
 	privilegeCreateUser        privilege = "CREATE USER"
@@ -45,6 +46,8 @@ const (
 	privilegeCreateIntegration privilege = "CREATE INTEGRATION"
 	privilegeManageGrants      privilege = "MANAGE GRANTS"
 	privilegeMonitorUsage      privilege = "MONITOR USAGE"
+	privilegeMonitorExecution  privilege = "MONITOR EXECUTION"
+	privilegeExecuteTask       privilege = "EXECUTE TASK"
 )
 
 type privilegeSet map[privilege]struct{}
